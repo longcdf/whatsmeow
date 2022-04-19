@@ -110,11 +110,19 @@ func (cli *Client) parseMessageInfo(node *waBinary.Node) (*types.MessageInfo, er
 	info.PushName, _ = node.Attrs["notify"].(string)
 	info.Category, _ = node.Attrs["category"].(string)
 
+	for _, child := range node.GetChildren() {
+		if child.Tag == "multicast" {
+			info.Multicast = true
+		} else if mediaType, ok := child.AttrGetter().GetString("mediatype", false); ok {
+			info.MediaType = mediaType
+		}
+	}
+
 	return &info, nil
 }
 
 func (cli *Client) decryptMessages(info *types.MessageInfo, node *waBinary.Node) {
-	if len(node.GetChildrenByTag("unavailable")) == len(node.GetChildren()) {
+	if len(node.GetChildrenByTag("unavailable")) > 0 && len(node.GetChildrenByTag("enc")) == 0 {
 		go cli.SendAck(node)
 		cli.Log.Warnf("Unavailable message %s from %s", info.ID, info.SourceString())
 		go cli.sendRetryReceipt(node, true)
